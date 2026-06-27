@@ -19,5 +19,14 @@ pipeline {
                 echo 'Build Completed'
             }
         }
+
+        stage('verify') {
+            steps {
+                echo 'Verifying build...'
+                sh 'cat build/version.txt'
+                sh 'ls -la build/'
+                echo 'Verification completed'
+            }
+        }
     }
 }
