@@ -4,11 +4,19 @@
 pipeline {
     agent any
     stages {
-        stage('prepare') {
+        stage('Prepare') {
             steps {
                 echo "Preparing workspace..."
                 sh 'mkdir -p build logs temp'
                 echo "Directiories created"
+            }
+        }
+
+        stage('Build') {
+            steps {
+                echo "Building application"
+                sh 'echo "Build version: 1.0.0" > build/version.txt'
+                echo 'Build Completed'
             }
         }
     }
