@@ -1,6 +1,6 @@
 pipeline{
     agent none
-
+    stages {
     stage('Check Agent') {
         agent any
         steps{
@@ -30,5 +30,6 @@ pipeline{
             sh 'free -h'
             sh 'date'
         }
+    }
     }
 }
