@@ -53,10 +53,10 @@ pipeline{
             steps {
                 script {
                     echo "Build number is: ${env.BUILD_NUMBER}"
-                    echo "$Build ID is: {env.BUILD_ID}"
-                    echo "$Job Name is: {env.JOB_NAME}"
-                    echo "$We are in Workspace: {env.WORKSPACE}"
-                    echo "$Build URL: {env.BUILD_URL}"
+                    echo '$Build ID is: {env.BUILD_ID}'
+                    echo '$Job Name is: {env.JOB_NAME}'
+                    echo '$We are in Workspace: {env.WORKSPACE}'
+                    echo '$Build URL: {env.BUILD_URL}'
                 }
             }
         }
