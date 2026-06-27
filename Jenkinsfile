@@ -23,5 +23,12 @@ pipeline {
                 sh 'ls -la'
             }
         }
+        stage('Environment') {
+            steps {
+                 echo "Build Number: ${BUILD_NUMBER}"
+                 echo "Job Name: ${JOB_NAME}"
+                echo "Workspace: ${WORKSPACE}"
+            }
+        }   
     }
 }
