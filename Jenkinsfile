@@ -18,8 +18,18 @@ pipeline{
                 echo "Length: ${message.length()}"
                 echo "Upper: ${message.toUpperCase()}"
                 echo "Lower: ${message.toLowerCase()}"
-                def message.replace('Course')
+                def message.replace('Tutorial', 'Course')
                 echo "NewEnv: ${message)}"
+            }
+        }
+
+        stage('Build Version') {
+            script {
+                def major = '1'
+                def minor = '0'
+                def patch = "${env.BUILD_NUMBER}"
+                env.APP_VERSION = "${major}.${minor}.${patch}"
+                echo "Application version: ${env.APP_VERSION}"
             }
         }
     }
