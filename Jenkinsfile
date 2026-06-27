@@ -18,7 +18,7 @@ pipeline{
                 echo "Length: ${message.length()}"
                 echo "Upper: ${message.toUpperCase()}"
                 echo "Lower: ${message.toLowerCase()}"
-                def message.replace('Tutorial', 'Course')
+                def message = message.replace('Tutorial', 'Course')
                 echo "NewEnv: ${message)}"
             }
         }
