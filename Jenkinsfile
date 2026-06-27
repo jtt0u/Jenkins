@@ -32,5 +32,13 @@ pipeline{
                 echo "Application version: ${env.APP_VERSION}"
             }
         }
+
+        stage('Display Version') {
+            script {
+                echo "Using version: ${env.APP_VERSION}"
+                def imageName = "myapp:${env.APP_VERSION}"
+                echo "Docker image would be: ${imageName}"
+            }
+        }
     }
 }
