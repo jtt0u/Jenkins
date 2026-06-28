@@ -28,5 +28,26 @@ pipeline {
                 }
             }
         }
+
+        stage("Configuration Map") {
+            steps {
+                script {
+                    def config = [
+                        appName: 'MyWebApp',
+                        version: '2.0.0',
+                        port: '8080',
+                        environment: 'production'
+                    ]
+
+                    for (var in config) {
+                        echo "${var}"
+                    }
+
+                    echo "${config.size()}"
+                    config.region = "us-east-1"
+                    echo "${config}"
+                }
+            }
+        }
     }
 }
