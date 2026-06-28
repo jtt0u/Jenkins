@@ -54,13 +54,49 @@ pipeline {
             steps {
                 script {
                     def config = [
-                        'DATABASE_URL': 'postgresql://db.example.com:5432/mydb'
-                        'CACHE_URL': 'redis://cache.example.com:6379'
+                        'DATABASE_URL': 'postgresql://db.example.com:5432/mydb',
+                        'CACHE_URL': 'redis://cache.example.com:6379',
                         'LOG_LEVEL': 'info'
                     ]
 
                     config.each { envName, value ->
                         echo "${envName} = ${value}"
+                    }
+                }
+            }
+        }
+
+        stage("Multi-Environment Deploy") {
+            steps {
+                script {
+                    def deployments = [
+                        'dev': ['dev1.example.com', 'dev2.example.com'],
+                        'staging': ['stage1.example.com'],
+                        'prod': ['prod1.example.com', 'prod2.example.com', 'prod3.example.com']
+                    ]
+
+                    deployments.each { envName, servers ->
+                        servers.each { server ->
+                            echo "Deploying to ${envName}: ${server}"
+                        }
+                    }
+                }
+            }
+        }
+
+        stage("Filter Environments") {
+            steps {
+                script {
+                    def allEnvs = ['dev', 'test', 'staging', 'prod', 'backup']
+
+                    def activeEnvs = allEnvs.findAll { envName ->
+                        envName != 'backup'
+                    }
+
+                    echo "Active environments:"
+
+                    activeEnvs.each { envName ->
+                        echo "${envName}"
                     }
                 }
             }
