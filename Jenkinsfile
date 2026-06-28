@@ -11,7 +11,7 @@ pipeline{
             }
         }
 
-        stage("Deploy to Production") {
+        stage("Deploy to Production (by branch)") {
             when {
                 branch 'main'
             }
@@ -27,7 +27,7 @@ pipeline{
             }
             steps {
                 echo "Deploying to staging environment"
-                echo "Environment: ${DEPLOY_ENV}"
+                echo "Environment: ${env.DEPLOY_ENV}"
             }
         }
 
@@ -37,7 +37,7 @@ pipeline{
             }
             steps {
                 echo "Deploying to production environment"
-                echo "Environment: ${DEPLOY_ENV}"
+                echo "Environment: ${env.DEPLOY_ENV}"
             }
         }
         
@@ -80,17 +80,30 @@ pipeline{
             }
             steps {
                 echo "Running security scan"
-                echo "Branch: ${env.BRANCH_NAME}, Environment: ${DEPLOY_ENV}"
+                echo "Branch: ${env.BRANCH_NAME}, Environment: ${env.DEPLOY_ENV}"
             }
         }
 
-        stage("Summery") {
+        stage("Summary") {
             steps {
                 echo "=== Pipeline Execution Summary ==="
                 echo "Branch: [название ветки]"
                 echo "Build Number: [номер]"
                 echo "Deploy Environment: [значение DEPLOY_ENV]"
                 echo "All stages completed"
+            }
+        }
+
+        stage('Weekend Task') {
+            when {
+                expression {
+                    def day = new Date().format('EEEE')
+                    return day == 'Saturday' || day == 'Sunday'
+                }
+            }
+            steps {
+                echo "This is a weekend build!"
+                echo "Day: ${new Date().format('EEEE, MMMM dd, yyyy')}"
             }
         }
     }
