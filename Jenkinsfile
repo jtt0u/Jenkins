@@ -49,5 +49,21 @@ pipeline {
                 }
             }
         }
+
+        stage("Environment Variables") {
+            steps {
+                script {
+                    def config = [
+                        'DATABASE_URL': 'postgresql://db.example.com:5432/mydb'
+                        'CACHE_URL': 'redis://cache.example.com:6379'
+                        'LOG_LEVEL': 'info'
+                    ]
+
+                    config.each { envName, value ->
+                        echo "${envName} = ${value}"
+                    }
+                }
+            }
+        }
     }
 }
