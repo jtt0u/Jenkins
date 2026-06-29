@@ -70,5 +70,36 @@ pipeline {
                 }
             }
         }
+
+        stage("Advanced Approval") {
+            steps {
+                script {
+                    def approval = input(
+                        message: "Configure deployment",
+                        parameters: [
+                            string(
+                                name: 'VERSION',
+                                defaultValue: '1.0.0',
+                                description: 'Application version'
+                            ),
+                            choice(
+                                name: 'ENVIRONMENT',
+                                choices: ['staging', 'production'],
+                                description: 'Deployment environment'
+                            ),
+                            booleanParam(
+                                name: 'SEND_NOTIFICATION',
+                                defaultValue: true,
+                                description: 'Send notification after deployment'
+                            )
+                        ]
+                    )
+
+                    echo "Version: ${approval.VERSION}"
+                    echo "Environment: ${approval.ENVIRONMENT}"
+                    echo "Send notification: ${approval.SEND_NOTIFICATION}"
+                }
+            }
+        }
     }
 }
