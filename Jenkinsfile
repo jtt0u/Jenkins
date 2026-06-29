@@ -26,7 +26,7 @@ pipeline{
             post {
                 always {
                 echo "Deploy stage finished"
-                sh 'ls -la buid/'
+                sh 'ls -la build/'
                 }
             }
         }
