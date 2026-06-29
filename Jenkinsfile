@@ -101,5 +101,13 @@ pipeline {
                 }
             }
         }
+
+        stage("Summary") {
+            steps {
+                echo "=== Pipeline Completed ==="
+                echo "All approvals received"
+                echo "Build Number: ${env.BUILD_NUMBER}"
+            }
+        }
     }
 }
