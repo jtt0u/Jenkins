@@ -26,12 +26,14 @@ pipeline{
                 echo "Deployment completed"
             }
             post {
+                always {
                 echo "Deploy stage finished"
                 sh 'ls -la buid/'
+                }
             }
         }
     }
-    post{
+    post {
         always{
             echo "=== Post Actions ==="
             echo "Pipeline completed"
@@ -42,6 +44,11 @@ pipeline{
             echo "✓ Build SUCCESS"
             echo "Build Number: ${env.BUILD_NUMBER}"
             echo "All stages passed successfully"
+
+            echo "Archiving build artifacts..."
+            sh 'tar -czf build.tar.gz build/'
+            sh 'ls -lh build.tar.gz'
+            echo "Artifacts archived successfully"
         }
 
         failure {
