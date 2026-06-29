@@ -10,16 +10,29 @@ pipeline {
         }
 
         stage("Test") {
-            echo "Running tests..."
-            sh 'sleep 2'
-            echo "Tests passed"
+            steps {
+                echo "Running tests..."
+                sh 'sleep 2'
+                echo "Tests passed"
+            }
         }
 
         stage("Deploy to Production") {
-            input message: "Deploy to production?"
-            echo "Deploying to production..."
-            sh 'sleep 3'
-            echo "Deployment completed successfully"
+            steps{
+                input message: "Deploy to production?"
+                echo "Deploying to production..."
+                sh 'sleep 3'
+                echo "Deployment completed successfully"
+            }
+        }
+
+        stage("Notify Team") {
+            steps {
+                input message: "Send notification to the team?",
+                ok: "Send Notification"
+                echo "Sending notification..."
+                echo "Notification sent to team@company.com"
+            }
         }
     }
 }
