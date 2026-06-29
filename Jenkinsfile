@@ -1,65 +1,25 @@
-pipeline{
+pipeline {
     agent any
-    stages{
+    stages {
         stage("Build") {
-            steps{
+            steps {
                 echo "Building application..."
-                sh 'mkdir -p build'
-                sh 'echo "Application binary" > build/app.jar'
+                sh 'sleep 2 для'
+                echo "Build completed"
             }
         }
 
-        stage("test") {
-            steps {
-                echo "Running test..."
-                sh 'sleep 2'
-                echo "Tests completed"
-            }
+        stage("Test") {
+            echo "Running tests..."
+            sh 'sleep 2'
+            echo "Tests passed"
         }
 
-        stage("deploy") {
-            steps {
-                echo "Deploying application..."
-                sh 'sleep 3'
-                echo "Deployment completed"
-            }
-            post {
-                always {
-                echo "Deploy stage finished"
-                sh 'ls -la build/'
-                }
-            }
-        }
-    }
-    post {
-        always{
-            echo "=== Post Actions ==="
-            echo "Pipeline completed"
-            sh 'date'
-        }
-        
-        success {
-            echo "✓ Build SUCCESS"
-            echo "Build Number: ${env.BUILD_NUMBER}"
-            echo "All stages passed successfully"
-
-            echo "Archiving build artifacts..."
-            sh 'tar -czf build.tar.gz build/'
-            sh 'ls -lh build.tar.gz'
-            echo "Artifacts archived successfully"
-        }
-
-        failure {
-            echo "✗ Build FAILED"
-            echo "Build Number: ${env.BUILD_NUMBER}"
-            echo "Check console output for details"
-        }
-        
-        cleanup {
-            echo "=== Cleanup Phase ==="
-            echo "Removing temporary files..."
-            sh 'mkdir temp && rm -rf temp'
-            echo "Cleanup completed"
+        stage("Deploy to Production") {
+            input message: "Deploy to production?"
+            echo "Deploying to production..."
+            sh 'sleep 3'
+            echo "Deployment completed successfully"
         }
     }
 }
