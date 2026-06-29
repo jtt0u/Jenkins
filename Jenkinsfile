@@ -63,5 +63,22 @@ pipeline {
                 }
             }
         }
+
+        stage("Summary") {
+            steps {
+                script {
+                    if (env.NODE_ENV == 'development') {
+                        echo "Running in development mode"
+                    } else {
+                        echo "Running in production mode"
+                    }
+
+                    echo "Application: ${env.APP_NAME}"
+                    echo "Version: ${env.APP_VERSION}"
+                    echo "Environment: ${env.NODE_ENV}"
+                    echo "Build completed at build #${env.BUILD_NUMBER}"
+                }
+            }
+        }
     }
 }
