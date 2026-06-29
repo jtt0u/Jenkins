@@ -4,7 +4,7 @@ pipeline {
         stage("Build") {
             steps {
                 echo "Building application..."
-                sh 'sleep 2 для'
+                sh 'sleep 2'
                 echo "Build completed"
             }
         }
