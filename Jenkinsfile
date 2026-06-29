@@ -75,10 +75,11 @@ pipeline {
                         'prod': ['prod1.example.com', 'prod2.example.com', 'prod3.example.com']
                     ]
 
-                    deployments.each { envName, servers ->
+                    deployments.each { envName, servers->
                         servers.each { server ->
                             echo "Deploying to ${envName}: ${server}"
                         }
+
                     }
                 }
             }
@@ -87,16 +88,12 @@ pipeline {
         stage("Filter Environments") {
             steps {
                 script {
-                    def allEnvs = ['dev', 'test', 'staging', 'prod', 'backup']
-
-                    def activeEnvs = allEnvs.findAll { envName ->
-                        envName != 'backup'
-                    }
-
+                    def envs = ['dev', 'test', 'staging', 'prod', 'backup']
+                    def activeEnvs = envs.findAll {it != 'backup'}
+                    
                     echo "Active environments:"
-
-                    activeEnvs.each { envName ->
-                        echo "${envName}"
+                    activeEnvs.each {envs ->
+                        echo "${envs}"
                     }
                 }
             }
