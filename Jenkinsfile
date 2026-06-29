@@ -4,7 +4,7 @@ pipeline{
         stage("Build") {
             steps{
                 echo "Building application..."
-                sh 'mkdir build'
+                sh 'mkdir -p build'
                 sh 'echo "Application binary" > build/app.jar'
             }
         }
