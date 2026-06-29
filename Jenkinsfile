@@ -48,5 +48,20 @@ pipeline {
                 }
             }
         }
+
+        stage("Run Application") {
+            steps {
+                dir('app') {
+                    sh 'echo "Starting $APP_NAME on port $PORT"'
+                    sh '''
+                        NODE_ENV=$NODE_ENV APP_VERSION=$APP_VERSION BUILD_NUMBER=$BUILD_NUMBER PORT=$PORT npm start &
+                        sleep 3
+                        curl http://localhost:$PORT/
+                        curl http://localhost:$PORT/config
+                        pkill -f "node server.js"
+                    '''
+                }
+            }
+        }
     }
 }
