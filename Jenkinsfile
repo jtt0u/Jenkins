@@ -36,5 +36,17 @@ pipeline {
                 }
             }
         }
+
+        stage("Test") {
+            environment {
+                NODE_ENV = 'test'
+            }
+            steps {
+                dir('app') {
+                    sh 'echo "Running tests in $NODE_ENV environment"'
+                    sh 'NODE_ENV=$NODE_ENV APP_VERSION=$APP_VERSION npm test'
+                }
+            }
+        }
     }
 }
