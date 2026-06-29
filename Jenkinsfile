@@ -18,6 +18,18 @@ pipeline{
                 echo "Tests completed"
             }
         }
+
+        stage("deploy") {
+            steps {
+                echo "Deploying application..."
+                sh 'sleep 3'
+                echo "Deployment completed"
+            }
+            post {
+                echo "Deploy stage finished"
+                sh 'ls -la buid/'
+            }
+        }
     }
     post{
         always{
