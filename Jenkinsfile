@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    tools {
+        nodejs 'NodeJS 20'
+    }
+
     environment {
         APP_NAME = 'jenkins-sample-app'
         NODE_ENV = 'development'
