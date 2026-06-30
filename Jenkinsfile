@@ -80,11 +80,33 @@ pipeline {
                 archiveArtifacts artifacts: 'python-app/dist/**'
             }
         }
+
+        stage("Smart Clean") {
+            steps {
+                sh 'rm -rf python-app/dist/ python-app/build/'
+                sh 'if [ ! -d "python-app/venv" ]; then python3 -m venv python-app/venv; fi'
+                echo "Smart cleanup completed - dependencies preserved"
+            }
+        }
+
+        stage("Build with Preserved Dependencies") {
+            steps {
+                dir('python-app') {
+                    sh '''
+                        if [ ! -f "venv/bin/pytest" ]; then
+                            venv/bin/pip install -r requirements.txt
+                        fi
+                        APP_VERSION=1.0.0 BUILD_NUMBER=$BUILD_NUMBER ENVIRONMENT=development venv/bin/python build.py
+                    '''
+                }
+            }
+        }
     }
 
     post {
         always {
             sh 'du -sh .'
+            sh 'du -ah . | sort -rh | head -10'
         }
         success {
             sh 'rm -rf python-app/dist/compiled/ python-app/__pycache__/'
