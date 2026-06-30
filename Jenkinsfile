@@ -23,5 +23,11 @@ pipeline {
                 archiveArtifacts artifacts: 'python-app/dist/BUILD-REPORT.txt'
             }
         }
+
+        stage("Archive All Build Output") {
+            steps {
+                archiveArtifacts artifacts: 'python-app/dist/**/*'
+            }
+        }
     }
 }
