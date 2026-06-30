@@ -52,5 +52,11 @@ pipeline {
                 archiveArtifacts artifacts: 'python-app/dist/package/*, python-app/dist/docs/*.md, python-app/*.xml'
             }
         }
+
+        stage("Archive Optional Files") {
+            steps {
+                archiveArtifacts artifacts: 'python-app/*.log', allowEmptyArchive: true
+            }
+        }
     }
 }
