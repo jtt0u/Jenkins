@@ -68,12 +68,33 @@ pipeline {
                 }
             }
         }
+
+        stage("Build and Test") {
+            steps {
+                dir('python-app') {
+                    sh 'python3 -m venv .venv'
+                    sh '.venv/bin/pip install -r requirements.txt'
+                    sh 'APP_VERSION=1.0.0 BUILD_NUMBER=$BUILD_NUMBER ENVIRONMENT=development python3 build.py'
+                    sh 'ENVIRONMENT=test APP_VERSION=1.0.0 .venv/bin/pytest -v test_app.py'
+                }
+                archiveArtifacts artifacts: 'python-app/dist/**'
+            }
+        }
     }
 
     post {
         always {
             sh 'du -sh .'
-            cleanWs()
+            cleanWs(
+                deleteDirs: true,
+                patterns: [
+                    [pattern: 'python-app/dist/compiled/**', type: 'INCLUDE'],
+                    [pattern: 'python-app/__pycache__/**', type: 'INCLUDE'],
+                    [pattern: 'python-app/*.pyc', type: 'INCLUDE'],
+                    [pattern: 'python-app/dist/package/**', type: 'EXCLUDE'],
+                    [pattern: '.git/**', type: 'EXCLUDE']
+                ]
+            )
             echo "Workspace cleaned after build"
         }
     }
