@@ -112,5 +112,21 @@ pipeline {
                 }
             }
         }
+
+        stage("Deploy to Production") {
+            when {
+                expression {
+                    params.ENVIRONMENT == 'production'
+                }
+            }
+            steps {
+                echo "=== PRODUCTION DEPLOYMENT ==="
+                echo "Version: ${params.APP_VERSION}"
+                echo "Build: ${env.BUILD_NUMBER}"
+                echo "Deploying to production servers..."
+                sleep 2
+                echo "Production deployment completed successfully"
+            }
+        }
     }
 }
