@@ -69,4 +69,12 @@ pipeline {
             }
         }
     }
+
+    post {
+        always {
+            sh 'du -sh .'
+            cleanWs()
+            echo "Workspace cleaned after build"
+        }
+    }
 }
