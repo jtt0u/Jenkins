@@ -85,6 +85,10 @@ pipeline {
     post {
         always {
             sh 'du -sh .'
+        }
+        success {
+            sh 'rm -rf python-app/dist/compiled/ python-app/__pycache__/'
+            echo "Cleaned temporary files after successful build"
             cleanWs(
                 deleteDirs: true,
                 patterns: [
@@ -96,6 +100,13 @@ pipeline {
                 ]
             )
             echo "Workspace cleaned after build"
+        }
+        failure {
+            archiveArtifacts artifacts: 'python-app/**/*.log', allowEmptyArchive: true
+            echo "Workspace preserved for debugging"
+        }
+        cleanup {
+            sh 'rm -rf .cache/ tmp/'
         }
     }
 }
