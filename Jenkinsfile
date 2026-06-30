@@ -128,5 +128,25 @@ pipeline {
                 echo "Production deployment completed successfully"
             }
         }
+
+        stage("Summary") {
+            steps {
+                script {
+                    echo "=== BUILD SUMMARY ==="
+                    echo "Application: ${env.APP_NAME}"
+                    echo "Version: ${params.APP_VERSION}"
+                    echo "Environment: ${params.ENVIRONMENT}"
+                    echo "Build Number: ${env.BUILD_NUMBER}"
+                    echo "Tests Run: ${params.RUN_TESTS ? 'Yes' : 'No'}"
+                    echo "Linting Run: ${params.RUN_LINT ? 'Yes' : 'No'}"
+
+                    if (params.ENVIRONMENT == 'production') {
+                        echo "Status: Deployed to PRODUCTION"
+                    } else {
+                        echo "Status: Deployed to ${params.ENVIRONMENT.toUpperCase()}"
+                    }
+                }
+            }
+        }
     }
 }
