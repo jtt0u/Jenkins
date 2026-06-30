@@ -10,7 +10,8 @@ pipeline {
         stage("Build") {
             steps {
                 dir('python-app') {
-                    sh 'pip3 install -r requirements.txt'
+                    sh 'python3 -m venv .venv'
+                    sh '.venv/bin/pip install -r requirements.txt'
                     sh 'APP_VERSION=$APP_VERSION BUILD_NUMBER=$BUILD_NUMBER ENVIRONMENT=$ENVIRONMENT python3 build.py'
                     echo "Build completed successfully"
                 }
@@ -33,7 +34,7 @@ pipeline {
         stage("Test") {
             steps {
                 dir('python-app') {
-                    sh 'ENVIRONMENT=test APP_VERSION=$APP_VERSION pytest -v --cov=app --cov-report=html --cov-report=xml --junit-xml=test-results.xml'
+                    sh 'ENVIRONMENT=test APP_VERSION=$APP_VERSION .venv/bin/pytest -v --cov=app --cov-report=html --cov-report=xml --junit-xml=test-results.xml'
                     echo "Tests completed"
                 }
             }
