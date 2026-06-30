@@ -65,4 +65,18 @@ pipeline {
             }
         }
     }
+
+    post {
+        success {
+            archiveArtifacts artifacts: 'python-app/dist/package/**', fingerprint: true
+            archiveArtifacts artifacts: 'python-app/dist/BUILD-REPORT.txt'
+        }
+        always {
+            archiveArtifacts artifacts: 'python-app/*.log', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'python-app/dist/build-info.json', allowEmptyArchive: true
+        }
+        failure {
+            archiveArtifacts artifacts: 'python-app/**/*.log', allowEmptyArchive: true
+        }
+    }
 }
