@@ -5,106 +5,28 @@ pipeline {
         nodejs 'NodeJS 20'
     }
 
+    parameters {
+        string(
+            name: 'APP_VERSION',
+            defaultValue: '1.0.0',
+            description: 'Application version to build'
+        )
+    }
+
     environment {
         APP_NAME = 'jenkins-sample-app'
         NODE_ENV = 'production'
-        APP_VERSION = "1.0.${BUILD_NUMBER}"
     }
 
     stages {
         stage("Build") {
             steps {
+                echo "Building ${env.APP_NAME} version ${params.APP_VERSION}"
                 dir('app') {
                     sh 'npm install'
-                    sh 'npm run build'
-                    sh 'echo "Build completed for version $APP_VERSION"'
+                    sh "APP_VERSION=${params.APP_VERSION} npm run build"
                 }
-            }
-        }
-
-        stage("Test with API Key") {
-            steps {
-                withCredentials([
-                    string(credentialsId: 'api-key', variable: 'API_KEY')
-                ]) {
-                    dir('app') {
-                        sh 'API_KEY=$API_KEY NODE_ENV=test APP_VERSION=$APP_VERSION npm test'
-                        sh 'echo "API key: $API_KEY"'
-                        echo "Tests completed with API key configured"
-                    }
-                }
-            }
-        }
-
-        stage("Configure Database") {
-            steps {
-                withCredentials([
-                    usernamePassword(
-                        credentialsId: 'database-creds',
-                        usernameVariable: 'DB_USER',
-                        passwordVariable: 'DB_PASS'
-                    )
-                ]) {
-                    sh 'echo "Configuring database connection..."'
-                    sh 'echo "Database user: $DB_USER"'
-                    sh 'echo "Database password: $DB_PASS"'
-                    sh 'echo "DB_USER=$DB_USER" > app/db.config'
-                    sh 'echo "DB_PASS=$DB_PASS" >> app/db.config'
-                    echo "Database configuration created"
-                }
-            }
-        }
-
-        stage("Run Application with Secrets") {
-            steps {
-                withCredentials([
-                    string(credentialsId: 'api-key', variable: 'API_KEY'),
-                    string(credentialsId: 'database-url', variable: 'DATABASE_URL')
-                ]) {
-                    dir('app') {
-                        sh 'echo "Starting application with all credentials configured"'
-                        sh '''
-                            NODE_ENV=$NODE_ENV APP_VERSION=$APP_VERSION BUILD_NUMBER=$BUILD_NUMBER API_KEY=$API_KEY DATABASE_URL=$DATABASE_URL npm start &
-                            sleep 3
-                            curl http://localhost:3000/config
-                            pkill -f "node server.js"
-                        '''
-                    }
-                }
-            }
-        }
-
-        stage("Production Deploy") {
-            when {
-                environment name: 'NODE_ENV', value: 'production'
-            }
-            steps {
-                withCredentials([
-                    string(credentialsId: 'api-key', variable: 'API_KEY'),
-                    usernamePassword(
-                        credentialsId: 'database-creds',
-                        usernameVariable: 'DB_USER',
-                        passwordVariable: 'DB_PASS'
-                    ),
-                    string(credentialsId: 'database-url', variable: 'DATABASE_URL')
-                ]) {
-                    sh '''
-                        DB_HOST=$(echo "$DATABASE_URL" | sed -E 's#^[^/]+//([^/:]+).*#\\1#')
-                        echo "Deploying to production with full configuration"
-                        echo "API Key: [configured]"
-                        echo "Database: $DB_USER@$DB_HOST"
-                        echo "Environment: $NODE_ENV"
-                        echo "Deployment completed successfully"
-                    '''
-                }
-            }
-        }
-
-        stage("Cleanup") {
-            steps {
-                sh 'rm -f app/db.config'
-                sh 'echo "Cleaned up sensitive files"'
-                sh 'echo "Pipeline completed for build #$BUILD_NUMBER"'
+                echo "Build completed for version ${params.APP_VERSION}"
             }
         }
     }
