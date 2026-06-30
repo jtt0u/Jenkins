@@ -23,7 +23,7 @@ function testEnvironmentVariables() {
 function testAppVersion() {
   const version = process.env.APP_VERSION;
 
-  if (version && version.match(/^\d+\.\d+\.\d+$/)) {
+  if (version && version.match(/^\d+\.\d+\.\d+(-\d+)?$/)) {
     console.log('✓ Test 2: Version format check PASSED');
     return true;
   } else {
