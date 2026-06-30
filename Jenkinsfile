@@ -29,5 +29,22 @@ pipeline {
                 archiveArtifacts artifacts: 'python-app/dist/**/*'
             }
         }
+
+        stage("Test") {
+            steps {
+                dir('python-app') {
+                    sh 'ENVIRONMENT=test APP_VERSION=$APP_VERSION pytest -v --cov=app --cov-report=html --cov-report=xml --junit-xml=test-results.xml'
+                    echo "Tests completed"
+                }
+            }
+        }
+
+        stage("Archive Test Reports") {
+            steps {
+                archiveArtifacts artifacts: 'python-app/test-results.xml'
+                archiveArtifacts artifacts: 'python-app/coverage.xml'
+                archiveArtifacts artifacts: 'python-app/htmlcov/**/*'
+            }
+        }
     }
 }
