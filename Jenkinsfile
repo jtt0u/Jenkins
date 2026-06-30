@@ -7,80 +7,31 @@ pipeline {
 
     environment {
         APP_NAME = 'jenkins-sample-app'
-        NODE_ENV = 'development'
-        PORT = '3000'
+        NODE_ENV = 'production'
         APP_VERSION = "1.0.${BUILD_NUMBER}"
     }
 
     stages {
-        stage("Show Build Info") {
-            steps {
-                echo "Build Number: ${env.BUILD_NUMBER}"
-                echo "Job Name: ${env.JOB_NAME}"
-                echo "Workspace: ${env.WORKSPACE}"
-                echo "Build URL: ${env.BUILD_URL}"
-            }
-        }
-
-        stage("Install Dependencies") {
-            steps {
-                dir('app') {
-                    sh 'npm install'
-                    sh 'echo "Dependencies installed for $APP_NAME"'
-                }
-            }
-        }
-
         stage("Build") {
             steps {
                 dir('app') {
-                    sh 'echo "Building $APP_NAME version $APP_VERSION"'
+                    sh 'npm install'
                     sh 'npm run build'
-                    echo "Build completed successfully"
+                    sh 'echo "Build completed for version $APP_VERSION"'
                 }
             }
         }
 
-        stage("Test") {
-            environment {
-                NODE_ENV = 'test'
-            }
+        stage("Test with API Key") {
             steps {
-                dir('app') {
-                    sh 'echo "Running tests in $NODE_ENV environment"'
-                    sh 'NODE_ENV=$NODE_ENV APP_VERSION=$APP_VERSION npm test'
-                }
-            }
-        }
-
-        stage("Run Application") {
-            steps {
-                dir('app') {
-                    sh 'echo "Starting $APP_NAME on port $PORT"'
-                    sh '''
-                        NODE_ENV=$NODE_ENV APP_VERSION=$APP_VERSION BUILD_NUMBER=$BUILD_NUMBER PORT=$PORT npm start &
-                        sleep 3
-                        curl http://localhost:$PORT/
-                        curl http://localhost:$PORT/config
-                        pkill -f "node server.js"
-                    '''
-                }
-            }
-        }
-
-        stage("Summary") {
-            steps {
-                script {
-                    if (env.NODE_ENV == 'development') {
-                        echo "Running in development mode"
-                    } else {
-                        echo "Running in production mode"
+                withCredentials([
+                    string(credentialsId: 'api-key', variable: 'API_KEY')
+                ]) {
+                    dir('app') {
+                        sh 'API_KEY=$API_KEY NODE_ENV=test APP_VERSION=$APP_VERSION npm test'
+                        sh 'echo "API key: $API_KEY"'
+                        echo "Tests completed with API key configured"
                     }
-
-                    echo "Application: ${env.APP_NAME}"
-                    echo "Version: ${env.APP_VERSION}"
-                    echo "Environment: ${env.NODE_ENV}"
-                    echo "Build completed at build #${env.BUILD_NUMBER}"
                 }
             }
         }
