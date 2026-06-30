@@ -34,5 +34,38 @@ pipeline {
                 sh 'find python-app/dist/package -name "*.pyc" -print -quit | grep -q . && exit 1 || echo "No .pyc files found"'
             }
         }
+
+        stage("Build and Stash Multiple") {
+            steps {
+                dir('python-app') {
+                    sh 'APP_VERSION=$APP_VERSION BUILD_NUMBER=$BUILD_NUMBER python3 build.py'
+                }
+                stash name: 'binaries', includes: 'python-app/dist/package/**'
+                stash name: 'docs', includes: 'python-app/dist/docs/**'
+                stash name: 'metadata', includes: 'python-app/dist/*.json, python-app/dist/*.txt'
+            }
+        }
+
+        stage("Use Binaries") {
+            steps {
+                unstash 'binaries'
+                sh 'ls -la python-app/dist/package/'
+                sh 'cat python-app/dist/package/VERSION'
+            }
+        }
+
+        stage("Publish Docs") {
+            steps {
+                unstash 'docs'
+                sh 'cat python-app/dist/docs/API.md'
+            }
+        }
+
+        stage("Check Metadata") {
+            steps {
+                unstash 'metadata'
+                sh 'cat python-app/dist/build-info.json && cat python-app/dist/BUILD-REPORT.txt'
+            }
+        }
     }
 }
