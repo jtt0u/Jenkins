@@ -58,5 +58,11 @@ pipeline {
                 archiveArtifacts artifacts: 'python-app/*.log', allowEmptyArchive: true
             }
         }
+
+        stage("Archive Package with Fingerprint") {
+            steps {
+                archiveArtifacts artifacts: 'python-app/dist/package/**', fingerprint: true
+            }
+        }
     }
 }
