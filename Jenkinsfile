@@ -11,6 +11,11 @@ pipeline {
             defaultValue: '1.0.0',
             description: 'Application version to build'
         )
+        choice(
+            name: 'ENVIRONMENT',
+            choices: ['development', 'staging', 'production'],
+            description: 'Target environment'
+        )
     }
 
     environment {
@@ -27,6 +32,22 @@ pipeline {
                     sh "APP_VERSION=${params.APP_VERSION} npm run build"
                 }
                 echo "Build completed for version ${params.APP_VERSION}"
+            }
+        }
+
+        stage("Configure Environment") {
+            steps {
+                script {
+                    echo "Configuring for ${params.ENVIRONMENT} environment"
+
+                    if (params.ENVIRONMENT == 'production') {
+                        echo "Production mode - strict checks enabled"
+                    } else if (params.ENVIRONMENT == 'staging') {
+                        echo "Staging mode - moderate checks"
+                    } else {
+                        echo "Development mode - minimal checks"
+                    }
+                }
             }
         }
     }
