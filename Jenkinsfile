@@ -108,5 +108,25 @@ pipeline {
                 }
             }
         }
+
+        stage("Build and Save") {
+            steps {
+                dir('python-app') {
+                    sh 'APP_VERSION=$APP_VERSION BUILD_NUMBER=$BUILD_NUMBER python3 build.py'
+                }
+                stash name: 'deployment-package', includes: 'python-app/dist/package/**'
+                archiveArtifacts artifacts: 'python-app/dist/package/**', fingerprint: true
+            }
+        }
+
+        stage("Deploy Simulation") {
+            steps {
+                unstash 'deployment-package'
+                echo "Deploying application version..."
+                sh 'cat python-app/dist/package/VERSION'
+                sleep 2
+                echo "Deployment completed"
+            }
+        }
     }
 }
