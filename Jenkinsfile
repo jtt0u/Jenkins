@@ -2,7 +2,7 @@ def dockerImage
 def imageWasPushed = false
 
 pipeline {
-    agent none
+    agent any
 
     parameters {
         string(name: 'DOCKER_REGISTRY', defaultValue: 'index.docker.io/v1/', description: 'Docker registry URL')
@@ -236,13 +236,11 @@ EOF
             echo "Current stage or build: ${env.STAGE_NAME ?: 'unknown'}"
         }
         always {
-            node {
-                sh 'docker rmi ${FULL_IMAGE_NAME} || true'
-                sh "docker rmi ${params.DOCKER_USERNAME}/${env.APP_NAME}:${env.VERSION}-${env.GIT_COMMIT_SHORT} || true"
-                sh "docker rmi ${params.DOCKER_USERNAME}/${env.APP_NAME}:latest || true"
-                sh 'docker image prune -f || true'
-                sh 'docker container prune -f || true'
-            }
+            sh 'docker rmi ${FULL_IMAGE_NAME} || true'
+            sh "docker rmi ${params.DOCKER_USERNAME}/${env.APP_NAME}:${env.VERSION}-${env.GIT_COMMIT_SHORT} || true"
+            sh "docker rmi ${params.DOCKER_USERNAME}/${env.APP_NAME}:latest || true"
+            sh 'docker image prune -f || true'
+            sh 'docker container prune -f || true'
         }
     }
 }
