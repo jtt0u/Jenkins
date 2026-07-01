@@ -1,0 +1,19 @@
+# Dockerfile для CI окружения - включает инструменты для тестирования
+FROM golang:1.21
+
+WORKDIR /app
+
+# Установка дополнительных инструментов для CI
+RUN go install golang.org/x/lint/golint@latest && \
+    go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest && \
+    go install github.com/securego/gosec/v2/cmd/gosec@latest
+
+# Копируем go.mod и go.sum
+COPY go.mod go.sum* ./
+RUN go mod download || true
+
+# Копируем весь код
+COPY . .
+
+# Образ готов для запуска тестов, линтеров и сборки
+CMD ["go", "test", "-v", "./..."]
