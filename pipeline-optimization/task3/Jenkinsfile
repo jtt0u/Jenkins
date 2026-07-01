@@ -1,0 +1,22 @@
+pipeline {
+    agent any
+
+    options {
+        timeout(time: 20, unit: 'MINUTES')
+        timestamps()
+        buildDiscarder(logRotator(numToKeepStr: '15', daysToKeepStr: '30'))
+        disableConcurrentBuilds()
+        durabilityHint('PERFORMANCE_OPTIMIZED')
+    }
+
+    stages {
+        stage('Deploy') {
+            options {
+                timeout(time: 5, unit: 'MINUTES')
+            }
+            steps {
+                sh 'echo "Deploying..."'
+            }
+        }
+    }
+}
