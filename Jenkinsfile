@@ -1,90 +1,84 @@
+def customImage
+
 pipeline {
-    agent none
+    agent any
+
+    environment {
+        APP_VERSION = "1.0.${BUILD_NUMBER}"
+        BUILD_TIME = ''
+        GIT_COMMIT = ''
+    }
 
     stages {
-        stage("Build Go App") {
-            agent {
-                docker {
-                    image 'golang:1.21'
-                    reuseNode true
-                }
-            }
-            environment {
-                HOME = "${WORKSPACE}"
-                GOCACHE = "${WORKSPACE}/.cache/go-build"
-                GOMODCACHE = "${WORKSPACE}/.cache/go-mod"
-            }
+        stage('Prepare Build Metadata') {
             steps {
-                dir('go-app') {
-                    sh 'go build -o app .'
-                    echo "Go application built successfully"
+                script {
+                    env.BUILD_TIME = sh(
+                        script: 'date -u +"%Y-%m-%dT%H:%M:%SZ"',
+                        returnStdout: true
+                    ).trim()
+                    env.GIT_COMMIT = sh(
+                        script: 'git rev-parse --short HEAD',
+                        returnStdout: true
+                    ).trim()
+
+                    echo "App version: ${env.APP_VERSION}"
+                    echo "Build time: ${env.BUILD_TIME}"
+                    echo "Git commit: ${env.GIT_COMMIT}"
                 }
             }
         }
 
-        stage("Test Go App") {
-            agent {
-                docker {
-                    image 'golang:1.21'
-                    reuseNode true
-                }
-            }
-            environment {
-                HOME = "${WORKSPACE}"
-                GOCACHE = "${WORKSPACE}/.cache/go-build"
-                GOMODCACHE = "${WORKSPACE}/.cache/go-mod"
-            }
+        stage('Build Docker Image') {
             steps {
-                dir('go-app') {
-                    sh 'go test -v ./...'
+                script {
+                    customImage = docker.build(
+                        "go-app:${env.BUILD_NUMBER}",
+                        "--build-arg APP_VERSION=${env.APP_VERSION} " +
+                        "--build-arg BUILD_TIME=${env.BUILD_TIME} " +
+                        "--build-arg GIT_COMMIT=${env.GIT_COMMIT} " +
+                        "go-app"
+                    )
+
+                    echo "Docker image go-app:${env.BUILD_NUMBER} built successfully"
                 }
             }
         }
 
-        stage("Lint") {
-            agent {
-                docker {
-                    image 'golang:1.21'
-                    reuseNode true
-                }
-            }
-            environment {
-                HOME = "${WORKSPACE}"
-                GOCACHE = "${WORKSPACE}/.cache/go-build"
-                GOMODCACHE = "${WORKSPACE}/.cache/go-mod"
-            }
+        stage('Test in Container') {
             steps {
-                dir('go-app') {
-                    sh 'go fmt ./...'
-                    sh 'go vet ./...'
+                script {
+                    customImage.inside {
+                        sh 'ls -lh /app/app'
+                        sh '''
+                            cd /app
+                            ./app &
+                            sleep 2
+                            wget -O- http://localhost:8080/health
+                        '''
+                    }
                 }
             }
         }
 
-        stage("Package Info") {
-            agent {
-                docker {
-                    image 'alpine:latest'
-                    reuseNode true
-                }
-            }
+        stage('Image Info') {
             steps {
-                sh 'cat /etc/alpine-release'
-                sh 'find . -type f | wc -l'
+                echo 'Docker image size:'
+                sh 'docker images go-app:${BUILD_NUMBER} --format "{{.Size}}"'
+
+                echo 'Docker image ID:'
+                sh 'docker images go-app:${BUILD_NUMBER} --format "{{.ID}}"'
+
+                echo 'Docker image created at:'
+                sh 'docker images go-app:${BUILD_NUMBER} --format "{{.CreatedAt}}"'
             }
         }
+    }
 
-        stage("Node Info") {
-            agent {
-                docker {
-                    image 'node:18'
-                    reuseNode true
-                }
-            }
-            steps {
-                sh 'node --version'
-                sh 'npm --version'
-            }
+    post {
+        always {
+            sh 'docker rmi go-app:${BUILD_NUMBER} || true'
+            sh 'docker image prune -f'
         }
     }
 }
