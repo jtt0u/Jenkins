@@ -1,47 +1,39 @@
+def dockerImage
+def fullImageName
+def appUrl
+def deployTime
+
 pipeline {
     agent any
 
+    parameters {
+        choice(name: 'DEPLOY_ENV', choices: ['dev', 'staging', 'production'], description: 'Target environment')
+        booleanParam(name: 'SKIP_TESTS', defaultValue: false, description: 'Skip test stage')
+        string(name: 'DOCKER_REGISTRY', defaultValue: 'registry.company.com', description: 'Docker registry')
+    }
+
     environment {
-        GIT_SHORT_COMMIT = "${sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()}"
-        BUILD_VERSION = "${sh(script: 'printf \"1.0.%s-%s\" \"$BUILD_NUMBER\" \"$(git rev-parse --short HEAD)\"', returnStdout: true).trim()}"
+        APP_NAME = 'flask-app'
+        VERSION = "1.0.${BUILD_NUMBER}"
+        IMAGE_TAG = "${DEPLOY_ENV}-${VERSION}"
+        BUILD_TIME = ''
     }
 
     stages {
-        stage('Git Info') {
+        stage('Prepare Environment') {
             steps {
                 script {
-                    def gitBranch = env.GIT_BRANCH ?: sh(script: 'git branch --show-current', returnStdout: true).trim()
-                    def gitCommit = env.GIT_COMMIT ?: sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
-                    def authorName = sh(script: 'git log -1 --pretty=%an', returnStdout: true).trim()
-                    def authorEmail = sh(script: 'git log -1 --pretty=%ae', returnStdout: true).trim()
-                    def repoUrl = env.GIT_URL ?: sh(script: 'git config --get remote.origin.url', returnStdout: true).trim()
+                    env.IMAGE_TAG = "${params.DEPLOY_ENV}-${env.VERSION}"
+                    fullImageName = "${params.DOCKER_REGISTRY}/${env.APP_NAME}:${env.IMAGE_TAG}"
 
-                    echo "Current branch: ${gitBranch}"
-                    echo "Full commit hash: ${gitCommit}"
-                    echo "Short commit hash: ${env.GIT_SHORT_COMMIT}"
-                    echo "Commit author name: ${authorName}"
-                    echo "Commit author email: ${authorEmail}"
-                    echo "Repository URL: ${repoUrl}"
-                    echo "Build version: ${env.BUILD_VERSION}"
+                    echo "Selected environment: ${params.DEPLOY_ENV}"
+                    echo "Application: ${env.APP_NAME}"
+                    echo "Version: ${env.VERSION}"
+                    echo "Docker image: ${fullImageName}"
+                    echo "Configuration file: configs/config.${params.DEPLOY_ENV}.env"
                 }
-            }
-        }
 
-        stage('Commit Message') {
-            steps {
-                script {
-                    def commitMessage = sh(
-                        script: 'git log -1 --pretty=%B',
-                        returnStdout: true
-                    ).trim()
-
-                    echo "Last commit message:"
-                    echo commitMessage
-
-                    if (commitMessage.contains('[skip ci]')) {
-                        echo 'WARNING: Commit message contains [skip ci]'
-                    }
-                }
+                sh "cat configs/config.${params.DEPLOY_ENV}.env"
             }
         }
 
@@ -49,51 +41,119 @@ pipeline {
             steps {
                 dir('flask-app') {
                     sh 'pip install -r requirements.txt || pip3 install -r requirements.txt || python3 -m pip install -r requirements.txt || true'
-                    echo "Building version ${env.BUILD_VERSION}"
+                    echo "Build version: ${env.VERSION}"
+                    echo "Deploy environment: ${params.DEPLOY_ENV}"
                 }
             }
         }
 
-        stage('Create Git Tag') {
+        stage('Test') {
             when {
-                branch 'main'
+                expression { params.SKIP_TESTS == false }
             }
             steps {
-                sh 'git config user.name "Jenkins CI"'
-                sh 'git config user.email "jenkins@company.com"'
-                sh 'git tag -a ${BUILD_VERSION} -m "Build ${BUILD_VERSION}" || true'
-                echo "Created local Git tag: ${env.BUILD_VERSION}"
+                dir('flask-app') {
+                    sh 'pytest test_app.py -v || python3 -m pytest test_app.py -v || true'
+                }
             }
         }
 
-        stage('Git Stats') {
-            steps {
-                sh 'echo "Commit count:"'
-                sh 'git rev-list --count HEAD'
-
-                sh 'echo "Last 5 commits:"'
-                sh 'git log -5 --pretty=format:"%h - %an: %s"'
-
-                sh 'echo "Changed files in last commit:"'
-                sh 'git diff-tree --no-commit-id --name-only -r HEAD'
-            }
-        }
-
-        stage('Generate Changelog') {
+        stage('Build Docker Image') {
             steps {
                 script {
-                    def previousTag = sh(
-                        script: 'git describe --tags --abbrev=0 @^ 2>/dev/null || true',
-                        returnStdout: true
-                    ).trim()
+                    env.BUILD_TIME = sh(script: 'date -u +"%Y-%m-%dT%H:%M:%SZ" || true', returnStdout: true).trim()
 
-                    if (previousTag) {
-                        sh "git log ${previousTag}..@ --pretty=format:'%h %s' > changelog.txt"
-                    } else {
-                        sh "git log -10 --pretty=format:'%h %s' > changelog.txt"
+                    try {
+                        dockerImage = docker.build(
+                            fullImageName,
+                            "--build-arg APP_VERSION=${env.VERSION} " +
+                            "--build-arg BUILD_TIME=${env.BUILD_TIME} " +
+                            "--build-arg GIT_COMMIT=${env.GIT_COMMIT} " +
+                            "--build-arg GIT_BRANCH=${env.GIT_BRANCH} " +
+                            "flask-app"
+                        )
+                    } catch (err) {
+                        echo "Docker build failed: ${err}"
+                    }
+
+                    sh "docker images ${fullImageName} --format 'Image size: {{.Size}}' || true"
+                }
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                script {
+                    deployTime = sh(script: 'date -u +"%Y-%m-%dT%H:%M:%SZ" || true', returnStdout: true).trim()
+                    appUrl = "https://app.${params.DEPLOY_ENV}.company.com"
+
+                    if (params.DEPLOY_ENV == 'dev') {
+                        echo 'Deploying automatically to dev environment'
+                        echo "docker run -d --name ${env.APP_NAME}-dev --env-file configs/config.dev.env -p 5000:5000 ${fullImageName}"
+                    } else if (params.DEPLOY_ENV == 'staging') {
+                        echo 'Deploying automatically to staging environment with additional checks'
+                        echo "docker run --rm --env-file configs/config.staging.env ${fullImageName} python -m pytest test_app.py -v"
+                        echo "docker run -d --name ${env.APP_NAME}-staging --env-file configs/config.staging.env -p 5000:5000 ${fullImageName}"
+                    } else if (params.DEPLOY_ENV == 'production') {
+                        input message: "Deploy ${env.APP_NAME} ${env.VERSION} to production?"
+                        echo 'Deploying to production environment'
+                        echo "docker run -d --name ${env.APP_NAME}-production --env-file configs/config.production.env -p 5000:5000 ${fullImageName}"
+                    }
+
+                    echo "Application URL: ${appUrl}"
+                    echo "Deployment time: ${deployTime}"
+                }
+            }
+        }
+
+        stage('Health Check') {
+            steps {
+                script {
+                    def healthUrl = "https://app.${params.DEPLOY_ENV}.company.com/health"
+
+                    echo "Checking application health for ${params.DEPLOY_ENV}"
+                    echo "curl -f ${healthUrl}"
+
+                    if (params.DEPLOY_ENV == 'production') {
+                        echo "curl -f https://app.production.company.com/"
+                        echo "curl -f https://app.production.company.com/api/status"
+                        echo "curl -f https://app.production.company.com/metrics"
                     }
                 }
-                archiveArtifacts artifacts: 'changelog.txt', fingerprint: true, allowEmptyArchive: true
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Deployment successful"
+            echo "Environment: ${params.DEPLOY_ENV}"
+            echo "Version: ${env.VERSION}"
+            echo "Deployment time: ${deployTime}"
+            script {
+                if (params.DEPLOY_ENV == 'production') {
+                    echo "Production changelog: git log -5 --oneline"
+                }
+            }
+        }
+        failure {
+            script {
+                if (params.DEPLOY_ENV == 'production') {
+                    echo 'CRITICAL: production deployment failed'
+                } else if (params.DEPLOY_ENV == 'staging') {
+                    echo 'WARNING: staging deployment failed'
+                } else {
+                    echo 'INFO: dev deployment failed'
+                }
+            }
+        }
+        always {
+            script {
+                if (fullImageName) {
+                    sh "docker rmi ${fullImageName} || true"
+                } else {
+                    echo 'No Docker image to clean up'
+                }
             }
         }
     }
