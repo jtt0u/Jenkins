@@ -34,12 +34,17 @@ pipeline {
         stage('Initialize') {
             steps {
                 script {
-                    env.BUILD_BRANCH = env.BRANCH_NAME ?: sh(script: 'git branch --show-current || true', returnStdout: true).trim()
-                    if (!env.BUILD_BRANCH) {
-                        env.BUILD_BRANCH = 'local'
+                    def detectedBranch = env.BRANCH_NAME ?: env.GIT_BRANCH ?: sh(
+                        script: 'git branch --show-current || git rev-parse --abbrev-ref HEAD || true',
+                        returnStdout: true
+                    ).trim()
+                    detectedBranch = detectedBranch?.replaceFirst('^origin/', '')
+                    if (!detectedBranch || detectedBranch == 'HEAD') {
+                        detectedBranch = 'final-cicd-pipeline'
                     }
 
-                    def safeBranch = env.BUILD_BRANCH.replaceAll('/', '-')
+                    env.BUILD_BRANCH = detectedBranch
+                    def safeBranch = detectedBranch.replaceAll('/', '-')
                     env.GIT_SHORT_COMMIT = sh(script: 'git rev-parse --short HEAD || true', returnStdout: true).trim()
                     env.VERSION = "1.0.${env.BUILD_NUMBER}-${env.GIT_SHORT_COMMIT}"
                     env.IMAGE_TAG = "${safeBranch}-${env.VERSION}"
@@ -341,8 +346,19 @@ EOF
         }
         always {
             archiveArtifacts artifacts: 'build-report.txt,changelog.txt,htmlcov/**,test-results.xml', fingerprint: true, allowEmptyArchive: true
-            sh "docker rmi ${fullImageName} || true"
-            sh "docker rmi ${latestBranchTag} || true"
+            script {
+                if (fullImageName?.trim()) {
+                    sh "docker rmi ${fullImageName} || true"
+                } else {
+                    echo 'No versioned Docker image to remove'
+                }
+
+                if (latestBranchTag?.trim()) {
+                    sh "docker rmi ${latestBranchTag} || true"
+                } else {
+                    echo 'No latest branch Docker image to remove'
+                }
+            }
             sh 'docker image prune -f || true'
             echo "Build result: ${currentBuild.currentResult}"
             echo "Duration: ${currentBuild.durationString}"
