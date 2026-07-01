@@ -1,0 +1,56 @@
+pipeline {
+    agent any
+
+    options {
+        timeout(time: 30, unit: 'MINUTES')
+        timestamps()
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+    }
+
+    stages {
+        stage('Quick Checks') {
+            failFast true
+
+            parallel {
+                stage('Lint') {
+                    steps {
+                        sh 'echo "Linting..." && sleep 2'
+                    }
+                }
+
+                stage('Format') {
+                    steps {
+                        sh 'echo "Checking format..." && sleep 1'
+                    }
+                }
+            }
+        }
+
+        stage('Unit Tests') {
+            steps {
+                sh 'echo "Running unit tests..." && sleep 5'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                sh 'echo "Building..." && sleep 10'
+            }
+        }
+
+        stage('Integration Tests') {
+            options {
+                timeout(time: 10, unit: 'MINUTES')
+            }
+            steps {
+                sh 'echo "Running integration tests..." && sleep 15'
+            }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
+        }
+    }
+}
