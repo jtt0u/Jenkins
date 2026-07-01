@@ -9,6 +9,11 @@ pipeline {
                     reuseNode true
                 }
             }
+            environment {
+                HOME = "${WORKSPACE}"
+                GOCACHE = "${WORKSPACE}/.cache/go-build"
+                GOMODCACHE = "${WORKSPACE}/.cache/go-mod"
+            }
             steps {
                 dir('go-app') {
                     sh 'go build -o app .'
@@ -24,6 +29,11 @@ pipeline {
                     reuseNode true
                 }
             }
+            environment {
+                HOME = "${WORKSPACE}"
+                GOCACHE = "${WORKSPACE}/.cache/go-build"
+                GOMODCACHE = "${WORKSPACE}/.cache/go-mod"
+            }
             steps {
                 dir('go-app') {
                     sh 'go test -v ./...'
@@ -37,6 +47,11 @@ pipeline {
                     image 'golang:1.21'
                     reuseNode true
                 }
+            }
+            environment {
+                HOME = "${WORKSPACE}"
+                GOCACHE = "${WORKSPACE}/.cache/go-build"
+                GOMODCACHE = "${WORKSPACE}/.cache/go-mod"
             }
             steps {
                 dir('go-app') {
