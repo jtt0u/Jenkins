@@ -1,0 +1,23 @@
+def envs = [
+    staging:    [replicas: 1, autoDeploy: true],
+    production: [replicas: 3, autoDeploy: false]
+]
+
+node {
+    stage('Build') {
+        sh "echo 'Building app...'"
+    }
+
+    for (entry in envs) {
+        def envName = entry.key
+        def config = entry.value
+
+        stage("Deploy to ${envName}") {
+            if (config.autoDeploy == false) {
+                input message: "Deploy to ${envName}?"
+            }
+
+            echo "Deploying to ${envName} with ${config.replicas} replica(s)"
+        }
+    }
+}

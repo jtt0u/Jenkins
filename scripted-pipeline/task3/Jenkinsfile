@@ -1,0 +1,22 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Deploy') {
+            steps {
+                script {
+                    try {
+                        sh "echo 'Applying manifest...'"
+                        sh 'exit 1'
+                    } catch (err) {
+                        echo "Deploy failed: ${err.message}"
+                        sh "echo 'Rolling back...'"
+                        currentBuild.result = 'UNSTABLE'
+                    } finally {
+                        sh "echo 'Checking pod status...'"
+                    }
+                }
+            }
+        }
+    }
+}

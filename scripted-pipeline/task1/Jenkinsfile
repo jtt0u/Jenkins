@@ -1,0 +1,31 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Prepare') {
+            steps {
+                script {
+                    env.VERSION = sh(
+                        script: 'echo 1.2.3',
+                        returnStdout: true
+                    ).trim()
+                }
+            }
+        }
+
+        stage('Build') {
+            steps {
+                echo "Building version: ${env.VERSION}"
+            }
+        }
+
+        stage('Tag') {
+            steps {
+                script {
+                    currentBuild.description = "v${env.VERSION}"
+                    currentBuild.displayName = "#${env.BUILD_NUMBER} - v${env.VERSION}"
+                }
+            }
+        }
+    }
+}

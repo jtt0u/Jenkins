@@ -1,0 +1,25 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Health Check') {
+            steps {
+                script {
+                    def services = ['auth', 'payment', 'gateway']
+                    def branches = [:]
+
+                    for (service in services) {
+                        def currentService = service
+
+                        branches[currentService] = {
+                            echo "Checking ${currentService}..."
+                            sh "echo 'curl http://${currentService}/health'"
+                        }
+                    }
+
+                    parallel branches
+                }
+            }
+        }
+    }
+}
