@@ -1,0 +1,38 @@
+pipeline {
+    agent none
+
+    stages {
+        stage('Tests') {
+            failFast true
+
+            parallel {
+                stage('Unit Tests') {
+                    agent {
+                        label 'linux'
+                    }
+                    steps {
+                        sh 'make test-unit'
+                    }
+                }
+
+                stage('Integration Tests') {
+                    agent {
+                        label 'linux'
+                    }
+                    steps {
+                        sh 'make test-integration'
+                    }
+                }
+
+                stage('Lint') {
+                    agent {
+                        label 'linux'
+                    }
+                    steps {
+                        sh 'make lint'
+                    }
+                }
+            }
+        }
+    }
+}
