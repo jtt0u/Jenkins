@@ -1,0 +1,36 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Build App') {
+            when {
+                not {
+                    changeset 'docs/**'
+                }
+            }
+            steps {
+                sh 'make build'
+            }
+        }
+
+        stage('Test App') {
+            when {
+                not {
+                    changeset 'docs/**'
+                }
+            }
+            steps {
+                sh 'make test'
+            }
+        }
+
+        stage('Build Docs') {
+            when {
+                changeset 'docs/**'
+            }
+            steps {
+                sh 'make docs'
+            }
+        }
+    }
+}
