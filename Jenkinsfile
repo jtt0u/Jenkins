@@ -1,45 +1,37 @@
+def dockerImage
+
 pipeline {
     agent any
 
     environment {
-        GIT_SHORT_COMMIT = "${sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()}"
-        BUILD_VERSION = "${sh(script: 'printf \"1.0.%s-%s\" \"$BUILD_NUMBER\" \"$(git rev-parse --short HEAD)\"', returnStdout: true).trim()}"
+        APP_NAME = 'flask-app'
+        VERSION = "1.0.${BUILD_NUMBER}"
+        IMAGE_TAG = "${BRANCH_NAME}-${VERSION}"
+        BUILD_TIME = ''
+        GIT_COMMIT_SHORT = ''
     }
 
     stages {
-        stage('Git Info') {
+        stage('Branch Info') {
             steps {
                 script {
-                    def gitBranch = env.GIT_BRANCH ?: sh(script: 'git branch --show-current', returnStdout: true).trim()
-                    def gitCommit = env.GIT_COMMIT ?: sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
-                    def authorName = sh(script: 'git log -1 --pretty=%an', returnStdout: true).trim()
-                    def authorEmail = sh(script: 'git log -1 --pretty=%ae', returnStdout: true).trim()
-                    def repoUrl = env.GIT_URL ?: sh(script: 'git config --get remote.origin.url', returnStdout: true).trim()
+                    def currentBranch = env.BRANCH_NAME ?: sh(script: 'git branch --show-current', returnStdout: true).trim()
+                    def safeBranch = currentBranch.replaceAll('/', '-')
+                    env.IMAGE_TAG = "${safeBranch}-${env.VERSION}"
+                    env.BUILD_TIME = sh(script: 'date -u +"%Y-%m-%dT%H:%M:%SZ" || true', returnStdout: true).trim()
+                    env.GIT_COMMIT_SHORT = sh(script: 'git rev-parse --short HEAD || true', returnStdout: true).trim()
 
-                    echo "Current branch: ${gitBranch}"
-                    echo "Full commit hash: ${gitCommit}"
-                    echo "Short commit hash: ${env.GIT_SHORT_COMMIT}"
-                    echo "Commit author name: ${authorName}"
-                    echo "Commit author email: ${authorEmail}"
-                    echo "Repository URL: ${repoUrl}"
-                    echo "Build version: ${env.BUILD_VERSION}"
-                }
-            }
-        }
+                    echo "Current branch: ${currentBranch}"
+                    echo "Image tag: ${env.IMAGE_TAG}"
 
-        stage('Commit Message') {
-            steps {
-                script {
-                    def commitMessage = sh(
-                        script: 'git log -1 --pretty=%B',
-                        returnStdout: true
-                    ).trim()
-
-                    echo "Last commit message:"
-                    echo commitMessage
-
-                    if (commitMessage.contains('[skip ci]')) {
-                        echo 'WARNING: Commit message contains [skip ci]'
+                    if (currentBranch == 'main') {
+                        echo 'Build type: production'
+                    } else if (currentBranch == 'develop') {
+                        echo 'Build type: staging'
+                    } else if (currentBranch.startsWith('feature/')) {
+                        echo 'Build type: feature'
+                    } else {
+                        echo 'Build type: regular branch'
                     }
                 }
             }
@@ -49,52 +41,87 @@ pipeline {
             steps {
                 dir('flask-app') {
                     sh 'pip install -r requirements.txt || pip3 install -r requirements.txt || python3 -m pip install -r requirements.txt || true'
-                    echo "Building version ${env.BUILD_VERSION}"
+                    echo "Building ${env.APP_NAME} version ${env.VERSION}"
                 }
             }
         }
 
-        stage('Create Git Tag') {
+        stage('Test') {
+            steps {
+                dir('flask-app') {
+                    sh 'pytest test_app.py -v || python3 -m pytest test_app.py -v || true'
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            when {
+                anyOf {
+                    branch 'main'
+                    branch 'develop'
+                    expression { env.BRANCH_NAME?.startsWith('feature/') }
+                }
+            }
+            steps {
+                script {
+                    try {
+                        dockerImage = docker.build(
+                            "${env.APP_NAME}:${env.IMAGE_TAG}",
+                            "--build-arg APP_VERSION=${env.VERSION} " +
+                            "--build-arg BUILD_TIME=${env.BUILD_TIME} " +
+                            "--build-arg GIT_COMMIT=${env.GIT_COMMIT_SHORT} " +
+                            "--build-arg GIT_BRANCH=${env.BRANCH_NAME} " +
+                            "flask-app"
+                        )
+                        echo "Docker image built: ${env.APP_NAME}:${env.IMAGE_TAG}"
+                    } catch (err) {
+                        echo "Docker image build failed: ${err}"
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to Staging') {
+            when {
+                branch 'develop'
+            }
+            steps {
+                echo 'Deploying to staging environment'
+                echo "kubectl set image deployment/${env.APP_NAME} ${env.APP_NAME}=${env.APP_NAME}:${env.IMAGE_TAG} --namespace=staging"
+            }
+        }
+
+        stage('Deploy to Production') {
             when {
                 branch 'main'
             }
             steps {
-                sh 'git config user.name "Jenkins CI"'
-                sh 'git config user.email "jenkins@company.com"'
-                sh 'git tag -a ${BUILD_VERSION} -m "Build ${BUILD_VERSION}" || true'
-                echo "Created local Git tag: ${env.BUILD_VERSION}"
+                input message: 'Deploy to production?'
+                echo 'Deploying to production environment'
+                echo "kubectl set image deployment/${env.APP_NAME} ${env.APP_NAME}=${env.APP_NAME}:${env.IMAGE_TAG} --namespace=production"
             }
         }
+    }
 
-        stage('Git Stats') {
-            steps {
-                sh 'echo "Commit count:"'
-                sh 'git rev-list --count HEAD'
-
-                sh 'echo "Last 5 commits:"'
-                sh 'git log -5 --pretty=format:"%h - %an: %s"'
-
-                sh 'echo "Changed files in last commit:"'
-                sh 'git diff-tree --no-commit-id --name-only -r HEAD'
-            }
+    post {
+        success {
+            echo "Build succeeded for branch ${env.BRANCH_NAME}"
         }
-
-        stage('Generate Changelog') {
-            steps {
-                script {
-                    def previousTag = sh(
-                        script: 'git describe --tags --abbrev=0 @^ 2>/dev/null || true',
-                        returnStdout: true
-                    ).trim()
-
-                    if (previousTag) {
-                        sh "git log ${previousTag}..@ --pretty=format:'%h %s' > changelog.txt"
-                    } else {
-                        sh "git log -10 --pretty=format:'%h %s' > changelog.txt"
-                    }
+        failure {
+            script {
+                if (env.BRANCH_NAME == 'main') {
+                    echo 'CRITICAL: production branch build failed'
+                } else if (env.BRANCH_NAME == 'develop') {
+                    echo 'Staging branch build failed'
+                } else if (env.BRANCH_NAME?.startsWith('feature/')) {
+                    echo "Feature branch build failed: ${env.BRANCH_NAME}"
+                } else {
+                    echo "Build failed for branch ${env.BRANCH_NAME}"
                 }
-                archiveArtifacts artifacts: 'changelog.txt', fingerprint: true, allowEmptyArchive: true
             }
+        }
+        always {
+            sh "docker rmi ${env.APP_NAME}:${env.IMAGE_TAG} || true"
         }
     }
 }
