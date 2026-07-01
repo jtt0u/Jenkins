@@ -1,157 +1,139 @@
+@Library('my-shared-lib') _
+
+def effectiveImageTag
+def builtImage
+
 pipeline {
-    agent none
+    agent any
+
+    parameters {
+        choice(name: 'DEPLOY_ENV', choices: ['staging', 'production'], description: 'Target environment')
+        booleanParam(name: 'SKIP_TESTS', defaultValue: false, description: 'Skip test stage')
+        string(name: 'IMAGE_TAG', defaultValue: '', description: 'Docker image tag. If empty, BUILD_NUMBER is used')
+    }
+
+    environment {
+        SERVICE_NAME = 'web-app'
+        DOCKER_REGISTRY = 'docker.io/jtt0u'
+    }
 
     options {
         timeout(time: 30, unit: 'MINUTES')
         timestamps()
-        buildDiscarder(logRotator(numToKeepStr: '10', daysToKeepStr: '30'))
-        disableConcurrentBuilds()
-        durabilityHint('PERFORMANCE_OPTIMIZED')
+        buildDiscarder(logRotator(numToKeepStr: '10'))
     }
 
     stages {
-        stage('Tests') {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Prepare') {
+            steps {
+                script {
+                    effectiveImageTag = params.IMAGE_TAG?.trim() ? params.IMAGE_TAG.trim() : env.BUILD_NUMBER
+                    currentBuild.description = "${params.DEPLOY_ENV} / ${effectiveImageTag}"
+                }
+
+                echo "Service: ${env.SERVICE_NAME}"
+                echo "Deploy environment: ${params.DEPLOY_ENV}"
+                echo "Docker registry: ${env.DOCKER_REGISTRY}"
+                echo "Image tag: ${effectiveImageTag}"
+                sh 'docker --version || true'
+                sh 'kubectl version --client || true'
+            }
+        }
+
+        stage('Quality Checks') {
             failFast true
 
             parallel {
-                stage('Unit Tests') {
-                    agent {
-                        label 'linux'
-                    }
-                    steps {
-                        sh 'make test-unit'
-                    }
-                }
-
-                stage('Integration Tests') {
-                    agent {
-                        label 'linux'
-                    }
-                    steps {
-                        sh 'make test-integration'
-                    }
-                }
-
                 stage('Lint') {
-                    agent {
-                        label 'linux'
-                    }
                     steps {
-                        sh 'make lint'
+                        sh 'echo "Running linter..." && sleep 3'
                     }
                 }
-            }
-        }
 
-        stage('Build App') {
-            agent {
-                label 'linux'
-            }
-            when {
-                not {
-                    changeset 'docs/**'
-                }
-            }
-            steps {
-                sh 'make build'
-            }
-        }
-
-        stage('Test App') {
-            agent {
-                label 'linux'
-            }
-            when {
-                not {
-                    changeset 'docs/**'
-                }
-            }
-            steps {
-                sh 'make test'
-            }
-        }
-
-        stage('Build Docs') {
-            agent {
-                label 'linux'
-            }
-            when {
-                changeset 'docs/**'
-            }
-            steps {
-                sh 'make docs'
-            }
-        }
-
-        stage('Deploy') {
-            agent {
-                label 'linux'
-            }
-            options {
-                timeout(time: 5, unit: 'MINUTES')
-            }
-            steps {
-                sh 'echo "Deploying..."'
-            }
-        }
-
-        stage('Quick Checks') {
-            failFast true
-
-            parallel {
-                stage('Format') {
-                    agent {
-                        label 'linux'
-                    }
+                stage('Security Scan') {
                     steps {
-                        sh 'echo "Checking format..." && sleep 1'
-                    }
-                }
-
-                stage('Fast Lint') {
-                    agent {
-                        label 'linux'
-                    }
-                    steps {
-                        sh 'echo "Linting..." && sleep 2'
+                        sh 'echo "Running security scan..." && sleep 2'
                     }
                 }
             }
         }
 
-        stage('Feedback Unit Tests') {
-            agent {
-                label 'linux'
+        stage('Test') {
+            when {
+                expression { params.SKIP_TESTS == false }
             }
             steps {
-                sh 'echo "Running unit tests..." && sleep 5'
+                sh 'echo "Running tests..." && sleep 5'
             }
         }
 
-        stage('Feedback Build') {
-            agent {
-                label 'linux'
-            }
+        stage('Build') {
             steps {
-                sh 'echo "Building..." && sleep 10'
+                script {
+                    builtImage = buildDocker(
+                        image: env.SERVICE_NAME,
+                        tag: effectiveImageTag,
+                        dockerfile: 'Dockerfile',
+                        registry: env.DOCKER_REGISTRY,
+                        push: false
+                    )
+                    echo "Built image: ${builtImage}"
+                }
             }
         }
 
-        stage('Feedback Integration Tests') {
-            agent {
-                label 'linux'
-            }
-            options {
-                timeout(time: 10, unit: 'MINUTES')
+        stage('Deploy to Staging') {
+            when {
+                anyOf {
+                    expression { params.DEPLOY_ENV == 'staging' }
+                    expression { params.DEPLOY_ENV == 'production' }
+                }
             }
             steps {
-                sh 'echo "Running integration tests..." && sleep 15'
+                script {
+                    deployApp(
+                        app: env.SERVICE_NAME,
+                        image: builtImage,
+                        env: 'staging',
+                        replicas: 1
+                    )
+                }
+            }
+        }
+
+        stage('Deploy to Production') {
+            when {
+                expression { params.DEPLOY_ENV == 'production' }
+            }
+            steps {
+                input message: 'Deploy to production?'
+                script {
+                    deployApp(
+                        app: env.SERVICE_NAME,
+                        image: builtImage,
+                        env: 'production',
+                        replicas: 3
+                    )
+                }
             }
         }
     }
 
     post {
+        success {
+            notifyBuild(status: 'SUCCESS', service: env.SERVICE_NAME)
+        }
+        failure {
+            notifyBuild(status: 'FAILURE', service: env.SERVICE_NAME)
+        }
         always {
+            echo 'Pipeline finished'
             cleanWs()
         }
     }
